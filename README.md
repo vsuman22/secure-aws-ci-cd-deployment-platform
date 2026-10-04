@@ -91,6 +91,60 @@ Developer → GitHub Repository → GitHub Actions → Container Registry
 - Security and troubleshooting documentation
 - Terraform enhancement after the manual setup is complete
 
+## Local Docker Compose Workflow
+
+The application can be built, deployed, health-checked, and stopped locally using Docker Compose and Bash scripts.
+
+### Start or redeploy locally
+
+```bash
+./scripts/deploy-local.sh
+```
+
+This script builds the Docker image, starts the Docker Compose service, and retries the Flask `/health` endpoint until the application is ready.
+
+### Check application health
+
+```bash
+./scripts/health-check.sh
+```
+
+Expected successful response:
+
+```json
+{
+  "application": "secure-aws-ci-cd-deployment-platform",
+  "status": "healthy",
+  "version": "1.0.0"
+}
+
+### Stop the local deployment
+
+```bash
+./scripts/stop-local.sh
+```
+
+This stops and removes the Docker Compose application container and its default Docker network. The Docker image remains locally available.
+
+### Local Service Configuration
+
+| Setting | Default value | Purpose |
+|---|---:|---|
+| Host port | `5000` | Local port used to access the application |
+| Container port | `5000` | Port on which Flask listens inside the container |
+| Image tag | `1.0.0` | Current local application image version |
+| Health endpoint | `/health` | Used for Docker and Bash deployment validation |
+| Restart policy | `unless-stopped` | Restarts the container after an unexpected exit or Docker restart |
+
+### Local Verification Commands
+
+```bash
+docker compose ps
+curl http://localhost:5000/health
+docker inspect --format '{{.State.Health.Status}}' secure-aws-ci-cd-platform-app
+docker compose logs --tail=50 app
+```
+
 ## Project Status
 
 Current phase: **Phase 0 — Planning, repository setup, Git, README, and architecture**
@@ -99,7 +153,7 @@ Current phase: **Phase 0 — Planning, repository setup, Git, README, and archit
 |---|---|---|
 | 0 | Planning, repository, Git, README, architecture | In progress |
 | 1 | Flask application and Docker | Not started |
-| 2 | Docker Compose and Bash scripts | Not started |
+| 2 | Docker Compose and Bash scripts | Complete |
 | 3 | AWS EC2 Linux server setup | Not started |
 | 4 | Nginx reverse proxy | Not started |
 | 5 | Container registry and image versioning | Not started |
