@@ -6,7 +6,7 @@ services:
     image: secure-aws-ci-cd-platform:${APP_VERSION:-1.0.0}
     container_name: secure-aws-ci-cd-platform-app
     ports:
-      - "${HOST_PORT:-5000}:5000"
+      - "127.0.0.1:${HOST_PORT:-5000}:5000"
     environment:
       APP_VERSION: ${APP_VERSION:-1.0.0}
     restart: unless-stopped
