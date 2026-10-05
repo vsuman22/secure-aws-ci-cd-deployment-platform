@@ -1,0 +1,21 @@
+services:
+  app:
+    image: ghcr.io/vsuman22/secure-aws-ci-cd-deployment-platform:${APP_VERSION:-1.0.1}
+    container_name: secure-aws-ci-cd-platform-app
+    ports:
+      - "127.0.0.1:${HOST_PORT:-5000}:5000"
+    environment:
+      APP_VERSION: ${APP_VERSION:-1.0.1}
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
