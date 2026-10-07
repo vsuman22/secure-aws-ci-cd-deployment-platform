@@ -1,205 +1,123 @@
 # Secure AWS CI/CD Deployment Platform
 
-A production-inspired DevOps portfolio project that deploys a small containerized Flask web application to AWS EC2 through a secure CI/CD pipeline.
+Containerized Flask application deployed on AWS EC2 behind Nginx, with Docker Compose, GitHub Container Registry (GHCR), and automated health‑checked deployments.
 
-The application itself will stay intentionally simple so the project can focus on practical DevOps and cloud engineering skills: Linux administration, Docker, GitHub Actions, AWS EC2, Nginx, image security scanning, secrets handling, CloudWatch monitoring, health checks, rollback, and troubleshooting.
+## Architecture
 
-## Project Goal
+- **Application**: Flask app with `/` and `/health` endpoints
+- **Runtime**: Gunicorn (WSGI server) in a Docker container
+- **Orchestration**: Docker Compose (production config)
+- **Reverse proxy**: Nginx (public port 80 → internal `127.0.0.1:5000`)
+- **Infrastructure**: AWS EC2 (Ubuntu), Security Groups, UFW
+- **Registry**: GitHub Container Registry (versioned images)
+- **Deployment**: Bash script with health checks and basic rollback support  
 
-Build a secure automated deployment platform with the following workflow:
-
-```text
-Developer Git push
-        ↓
-GitHub Actions CI pipeline
-        ↓
-Test / lint application
-        ↓
-Build Docker image
-        ↓
-Trivy image security scan
-        ↓
-Push versioned image to container registry
-        ↓
-Deploy to AWS EC2 using SSH
-        ↓
-Docker Compose starts the application
-        ↓
-Nginx routes traffic to the application
-        ↓
-Health check validates deployment
-        ↓
-CloudWatch monitors the EC2 instance and logs
-        ↓
-Rollback runs if deployment fails
-```
-
-## Planned Tech Stack
-
-| Area | Technology |
-|---|---|
-| Application | Python Flask |
-| Operating system | Ubuntu Linux on AWS EC2 |
-| Source control | Git and GitHub |
-| Containerization | Docker and Docker Compose |
-| CI/CD | GitHub Actions |
-| Container registry | Docker Hub or GitHub Container Registry |
-| Reverse proxy | Nginx |
-| Cloud platform | AWS EC2, IAM, Security Groups, CloudWatch |
-| Security scanning | Trivy |
-| Automation | Bash scripting |
-| Infrastructure as Code | Terraform, added only after manual AWS deployment works |
-
-## Planned Architecture
+Traffic flow:
 
 ```text
-Internet User
-    ↓
-AWS EC2 Security Group
-    ↓
-Nginx Reverse Proxy
-    ↓
-Flask Application Container
-    ↓
-Docker Network
+Internet
+  → AWS Security Group (port 80)
+  → UFW (port 80)
+  → Nginx
+  → Gunicorn (127.0.0.1:5000)
+  → Flask app
 ```
 
-The CI/CD path will be:
+Backend port `5000` is **not** exposed publicly.
 
-```text
-Developer → GitHub Repository → GitHub Actions → Container Registry
-                                             ↓
-                                      SSH deployment to EC2
-                                             ↓
-                                  Docker Compose + Nginx
-```
+## Key Features
 
-## Planned Features
+- Versioned Docker images in GHCR (e.g. `1.0.1`)
+- Health‑checked deployment script:
+  - Pulls exact image tag
+  - Restarts container via Docker Compose
+  - Waits for `/health` to become healthy
+  - Prints logs on failure
+- Defense‑in‑depth security:
+  - SSH restricted to admin IP
+  - UFW + Security Group
+  - Backend bound to `127.0.0.1` only
+- Automated tests with pytest in GitHub Actions
 
-- Flask application with a `/health` endpoint
-- Dockerized application
-- Docker Compose deployment
-- Nginx reverse proxy
-- Immutable Docker image version tags
-- GitHub Actions CI/CD workflow
-- Trivy container image scanning
-- GitHub Secrets for sensitive configuration
-- AWS EC2 deployment using SSH
-- Deployment health checks
-- Rollback script for failed deployments
-- CloudWatch monitoring and logs
-- Security and troubleshooting documentation
-- Terraform enhancement after the manual setup is complete
+## Repository Structure
 
-## Local Docker Compose Workflow
+- `app/` – Flask application code
+- `Dockerfile` – Image build definition
+- `compose.yaml` – Local development Compose config
+- `compose.production.yaml` – Production deployment config (GHCR image)
+- `scripts/deploy.sh` – Health‑checked deployment script
+- `.github/workflows/ci.yml` – GitHub Actions CI workflow
 
-The application can be built, deployed, health-checked, and stopped locally using Docker Compose and Bash scripts.
+## Deployment
 
-### Start or redeploy locally
+### Image
+
+- Registry: GitHub Container Registry
+- Image:
+  `ghcr.io/vsuman22/secure-aws-ci-cd-deployment-platform:1.0.1`
+
+### EC2 Deployment
+
+On the EC2 instance:
 
 ```bash
-./scripts/deploy-local.sh
+/opt/secure-devops-platform/scripts/deploy.sh 1.0.1
 ```
 
-This script builds the Docker image, starts the Docker Compose service, and retries the Flask `/health` endpoint until the application is ready.
+The script:
 
-### Check application health
+1. Pulls the specified image from GHCR
+2. Starts the service using `compose.production.yaml`
+3. Waits for the `/health` endpoint to respond
+4. Fails with logs if health checks do not pass
 
-```bash
-./scripts/health-check.sh
-```
+### Public Endpoints
 
-Expected successful response:
+- Health: `http://<EC2_PUBLIC_IP>/health`  
+- Root: `http://<EC2_PUBLIC_IP>/`
 
-```json
-{
-  "application": "secure-aws-ci-cd-deployment-platform",
-  "status": "healthy",
-  "version": "1.0.0"
-}
+Backend port `5000` is intentionally not accessible from the internet.
 
-### Stop the local deployment
+## Security
 
-```bash
-./scripts/stop-local.sh
-```
+- SSH (port 22) allowed only from a trusted IP  
+- HTTP (port 80) allowed from anywhere (Nginx only)  
+- Application port `5000` bound to `127.0.0.1` and blocked by UFW + Security Group  
+- No secrets, keys, or credentials committed to the repository  
 
-This stops and removes the Docker Compose application container and its default Docker network. The Docker image remains locally available.
+## CI/CD
 
-### Local Service Configuration
+- GitHub Actions workflow:
+  - Runs on push to `main`
+  - Sets up Python 3.12
+  - Installs dependencies from `requirements.txt` and `requirements-dev.txt`
+  - Runs `pytest` for endpoint tests
+  - Builds a local test Docker image
 
-| Setting | Default value | Purpose |
-|---|---:|---|
-| Host port | `5000` | Local port used to access the application |
-| Container port | `5000` | Port on which Flask listens inside the container |
-| Image tag | `1.0.0` | Current local application image version |
-| Health endpoint | `/health` | Used for Docker and Bash deployment validation |
-| Restart policy | `unless-stopped` | Restarts the container after an unexpected exit or Docker restart |
+Image build, push to GHCR, and EC2 deployment are currently performed manually with versioned tags, using the same deployment script that CI/CD would call.
 
-### Local Verification Commands
+## Monitoring & Operations
 
-```bash
-docker compose ps
-curl http://localhost:5000/health
-docker inspect --format '{{.State.Health.Status}}' secure-aws-ci-cd-platform-app
-docker compose logs --tail=50 app
-```
+- Docker health checks configured in Compose
+- Logs: `docker compose logs`
+- CloudWatch integration: planned / basic (adjust to what you actually implemented)
 
-## Project Status
+## Cost & Cleanup
 
-Current phase: **Phase 0 — Planning, repository setup, Git, README, and architecture**
+- EC2 instance is stopped when not in use to avoid unnecessary charges
+- EBS volume persists while stopped; can be deleted when the project is no longer needed  
 
-| Phase | Topic | Status |
-|---|---|---|
-| 0 | Planning, repository, Git, README, architecture | In progress |
-| 1 | Flask application and Docker | Not started |
-| 2 | Docker Compose and Bash scripts | Complete |
-| 3 | AWS EC2 Linux server setup | Not started |
-| 4 | Nginx reverse proxy | Not started |
-| 5 | Container registry and image versioning | Not started |
-| 6 | GitHub Actions CI/CD deployment | Not started |
-| 7 | Trivy, secrets, and security basics | Not started |
-| 8 | CloudWatch monitoring | Not started |
-| 9 | Health checks, rollback, incidents, troubleshooting | Not started |
-| 10 | Terraform infrastructure enhancement | Not started |
+## Future Enhancements
 
-## Security Principles
-
-- Never commit `.env` files, passwords, API keys, tokens, private keys, or AWS credentials.
-- Use GitHub Secrets for CI/CD credentials.
-- Restrict EC2 Security Group access to the minimum required ports.
-- Use image scanning before publishing container images.
-- Use versioned image tags instead of deploying only `latest`.
-- Keep secrets out of logs, screenshots, Git history, and documentation.
-
-## Cost Safety
-
-AWS infrastructure will not be created during Phase 0.
-
-When AWS resources are created in later phases, the project will use cost-conscious choices and document cleanup steps. The EC2 instance will be stopped or terminated when not actively being used.
-
-## Architecture Documentation
-
-- [Architecture notes](docs/architecture.md)
-- [Architecture diagram source](diagrams/architecture.md)
-
-## Learning Objectives
-
-By completing this project, I will practice:
-
-- Linux server administration
-- Git and GitHub workflows
-- Docker and Docker Compose
-- CI/CD using GitHub Actions
-- AWS EC2 deployment and basic IAM
-- Nginx reverse proxy configuration
-- Container image scanning with Trivy
-- Secrets management
-- CloudWatch monitoring
-- Bash automation
-- Health checks, rollback, and incident troubleshooting
+- Full GitHub Actions CD:
+  - Push image to GHCR
+  - Trivy vulnerability scanning
+  - Automated SSH deploy to EC2
+- Terraform for infrastructure as code
+- HTTPS with Let’s Encrypt
+- CloudWatch dashboards and alarms
 
 ## Author
 
-SUMAN V
-B.Tech CSE Fresher | Aspiring DevOps / Cloud Engineer
+Suman V – B.Tech CSE 2026 – DevOps / Cloud Engineer aspirant
+GitHub: https://github.com/vsuman22
