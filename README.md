@@ -117,6 +117,23 @@ Image build, push to GHCR, and EC2 deployment are currently performed manually w
 - HTTPS with Let’s Encrypt
 - CloudWatch dashboards and alarms
 
+## Troubleshooting & Incidents
+
+### Incident 1: SSH connection timed out
+
+Symptom: `ssh: connect to host <IP> port 22: Connection timed out`
+Cause: Security Group SSH rule had an old public IP.
+Resolution: Updated SSH source to “My IP” in the Security Group.
+Prevention: Always re-check public IP and Security Group after network changes.
+
+### Incident 2: GHCR push failed with permission_denied
+
+Symptom: `denied: permission_denied: write_package` in GitHub Actions.
+Cause: Workflow lacked write permission for packages.
+Resolution: Enabled “Read and write permissions” in repo Actions settings and used a minimal workflow; ultimately performed manual GHCR push with PAT.
+Prevention: Verify workflow permissions and test with a minimal workflow early.
+
+
 ## Author
 
 Suman V – B.Tech CSE 2026 – DevOps / Cloud Engineer aspirant
