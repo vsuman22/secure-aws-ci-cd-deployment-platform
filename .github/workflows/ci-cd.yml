@@ -10,11 +10,11 @@ permissions:
   packages: write
 
 jobs:
-  build-test-scan-deploy:
+  build-test-push:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -32,19 +32,13 @@ jobs:
         run: |
           python -m pytest -v
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push Docker image
+      - name: Build and push to GHCR
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:1.0.2
-            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/vsuman22/secure-aws-ci-cd-deployment-platform:1.0.2
+            ghcr.io/vsuman22/secure-aws-ci-cd-deployment-platform:latest
+          provenance: false
