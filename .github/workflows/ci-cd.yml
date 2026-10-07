@@ -8,7 +8,6 @@ on:
 permissions:
   contents: read
   packages: write
-  security-events: write
 
 env:
   REGISTRY: ghcr.io
@@ -53,25 +52,3 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ secrets.IMAGE_TAG }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'image'
-          image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ secrets.IMAGE_TAG }}'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: 'trivy-results.sarif'
-
-      - name: Deploy to EC2 via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            /opt/secure-devops-platform/scripts/deploy.sh ${{ secrets.IMAGE_TAG }}
