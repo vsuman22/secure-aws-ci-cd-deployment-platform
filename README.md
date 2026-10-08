@@ -96,6 +96,10 @@ Backend port `5000` is intentionally not accessible from the internet.
 
 Image build, push to GHCR, and EC2 deployment are currently performed manually with versioned tags, using the same deployment script that CI/CD would call.
 
+- CI is fully automated (tests on every push).
+- CD (build/push/deploy) is currently performed manually with versioned images; the `ci-cd.yml` workflow is a work-in-progress.
+
+
 ## Monitoring & Operations
 
 - Docker health checks configured in Compose
